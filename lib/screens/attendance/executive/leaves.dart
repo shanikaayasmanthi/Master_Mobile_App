@@ -1,6 +1,8 @@
 import 'package:av_master_mobile/controllers/attendance/leave_controller.dart';
 import 'package:av_master_mobile/models/attendance/leave.dart';
+import 'package:av_master_mobile/models/user.dart';
 import 'package:av_master_mobile/screens/attendance/apply_leave.dart';
+import 'package:av_master_mobile/screens/profile.dart';
 import 'package:av_master_mobile/widgets/attendance/leave_card.dart';
 import 'package:av_master_mobile/widgets/attendance/leave_detail_card.dart';
 import 'package:av_master_mobile/widgets/attendance/leave_request_card.dart';
@@ -22,6 +24,8 @@ List<LeaveModel> leaves = <LeaveModel>[].obs;
 List<LeaveModel> leaveRequests = <LeaveModel>[].obs;
 TextEditingController filterFromDate = TextEditingController();
 final List <RxString> filterName = <RxString>[].obs;
+UserModel? user;
+Map<String,dynamic>? leaveSummery;
 
 
 class _LeavesState extends State<Leaves> {
@@ -48,6 +52,59 @@ class _LeavesState extends State<Leaves> {
       controller.text = formattedDate;
     }
   }
+
+  Future loadUser()async{
+    final fetchedUser = await authController.getUserFromStorage();
+    if(fetchedUser!=null){
+      setState(() {
+        user =fetchedUser;
+      });
+      await loadLeaveSummery();
+      final List<LeaveModel> fetchedLeaveList = await leaveController.fetchLeaves(
+        state: currentState.value,
+        epfNumber: user!.epfNumber,
+      );
+      setState(() {
+        leaves = fetchedLeaveList;
+      });
+    }
+  }
+
+  Future fetchLeaves()async{
+    final List<LeaveModel> fetchedLeaveList = await leaveController.fetchLeaves(
+      state: currentState.value,
+      epfNumber: user!.epfNumber,
+    );
+    setState(() {
+      leaves = fetchedLeaveList;
+    });
+  }
+  Future loadLeaveSummery()async{
+    final fetchedLeaveSummery = await leaveController.loadLeaveSummery(epfNumber: user!.epfNumber);
+    if(fetchedLeaveSummery!=null){
+      setState(() {
+        leaveSummery = fetchedLeaveSummery;
+      });
+    }
+  }
+
+  Future loadLeaveRequests()async{
+    final fetchedLeaveRequests = await leaveController.fetchLeaveRequests(epfNumber: user!.epfNumber);
+    if(fetchedLeaveRequests.isNotEmpty){
+      setState(() {
+        leaveRequests.clear(); // Clear the old list
+        leaveRequests.addAll(fetchedLeaveRequests);
+        leaveRequests = fetchedLeaveRequests;
+      });
+    }else{
+      leaveRequests.clear();
+    }
+  }
+
+  Future reLoadLeaveRequests()async{
+    await loadLeaveRequests();
+  }
+
   @override
   void initState() {
     super.initState();
@@ -55,6 +112,7 @@ class _LeavesState extends State<Leaves> {
     for (var leaveType in leaveTypeList) {
       checkedLeaveTypes[leaveType] = false;
     }
+    loadUser();
   }
 
   @override
@@ -186,12 +244,12 @@ class _LeavesState extends State<Leaves> {
                 children: [
                   LeaveCard(
                     leaveType: "Leave Balance",
-                    leaveCount: 04,
+                    leaveCount: leaveSummery?['leave_balance']??0,
                     color: Color(0xFF0074F9),
                   ),
                   LeaveCard(
                     leaveType: "Approved Leaves",
-                    leaveCount: 02,
+                    leaveCount: leaveSummery?['accepted_leaves']??0,
                     color: Color(0xFF00C63B),
                   ),
                 ],
@@ -202,12 +260,12 @@ class _LeavesState extends State<Leaves> {
                 children: [
                   LeaveCard(
                     leaveType: "Pending Leaves",
-                    leaveCount: 01,
+                    leaveCount: leaveSummery?['pending_leaves']??0,
                     color: Color(0xFF01601E),
                   ),
                   LeaveCard(
                     leaveType: "Rejected Leaves",
-                    leaveCount: 01,
+                    leaveCount: leaveSummery?['rejected_leaves']??0,
                     color: Color(0xFFF90004),
                   ),
                 ],
@@ -308,11 +366,16 @@ class _LeavesState extends State<Leaves> {
                   ),
                 ),
               },
-              onValueChanged: (String value) {
+              onValueChanged: (String value)async {
                 setState(() {
                   currentState.value = value;
                   // leaves = leaveController.fetchLeaves(state: value);
                 });
+                if(value!='Team'){
+                  await fetchLeaves();
+                }else{
+                  await loadLeaveRequests();
+                }
               },
             ),
           ),
@@ -320,27 +383,53 @@ class _LeavesState extends State<Leaves> {
           SizedBox(height: 15),
           //my leaves or leave requests
           SizedBox(
-            height: 900,
+            height: leaves.isEmpty&&currentState.value!='Team'?50:leaveRequests.isEmpty&&currentState.value=='Team'?50:900,
             child: Obx(() {
-              leaves = leaveController.fetchLeaves(state: currentState.value);
+              // leaves =  leaveController.fetchLeaves(state: currentState.value,epfNumber: user!.epfNumber);
               if (currentState.value == "Team") {//leave requests
-                leaveRequests = leaveController.fetchLeaveRequests();
-                return ListView.builder(
-                  itemCount: leaveRequests.length,
-                    itemBuilder: (context,index){
-                  return Padding(padding: EdgeInsets.only(bottom: 10),
-                    child: LeaveRequestCard(leaveRequest: leaveRequests[index]),);
-                });
+                if(leaveRequests.isEmpty){
+                  return Center(
+                    child: Text(
+                      "No leave requests to display.",
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontStyle: FontStyle.italic,
+                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                      ),
+                    ),
+                  );
+                }else{
+                  return ListView.builder(
+                      itemCount: leaveRequests.length,
+                      itemBuilder: (context,index){
+                        return Padding(padding: EdgeInsets.only(bottom: 10),
+                          child: LeaveRequestCard(leaveRequest: leaveRequests[index],onActionComplete: reLoadLeaveRequests,),);
+                      });
+                }
               } else {//my leaves
-                return ListView.builder(
-                  itemCount: leaves.length,
-                  itemBuilder: (context, index) {
-                    return Padding(
-                      padding: EdgeInsets.only(bottom: 10),
-                      child: LeaveDetailCard(leave: leaves[index]),
-                    );
-                  },
-                );
+                if (leaves.isEmpty) {
+                  return Center(
+                    child: Text(
+                      "No leaves to display.",
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontStyle: FontStyle.italic,
+                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                      ),
+                    ),
+                  );
+                } else {
+                  // If not empty, display the ListView
+                  return ListView.builder(
+                    itemCount: leaves.length,
+                    itemBuilder: (context, index) {
+                      return Padding(
+                        padding: EdgeInsets.only(bottom: 10),
+                        child: LeaveDetailCard(leave: leaves[index]),
+                      );
+                    },
+                  );
+                }
               }
             }),
           ),

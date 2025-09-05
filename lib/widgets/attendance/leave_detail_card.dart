@@ -76,8 +76,8 @@ class _LeaveDetailCardState extends State<LeaveDetailCard> {
                         IconButton(
                           onPressed: () {},
                           icon: Icon(
-                            widget.leave.status=="pending"?Icons.error_outline:widget.leave.status=="approved"?Icons.check_circle_outline:Icons.do_disturb_rounded,
-                            color:widget.leave.status=="pending"?Color(0xFF01601E):widget.leave.status=="approved"?Color(0xFF00C63B):Color(0xFFF90004) ,
+                            widget.leave.status=="pending"?Icons.error_outline:widget.leave.status=="accept"?Icons.check_circle_outline:Icons.do_disturb_rounded,
+                            color:widget.leave.status=="pending"?Color(0xFF01601E):widget.leave.status=="accept"?Color(0xFF00C63B):Color(0xFFF90004) ,
                           ),
                           color: Color(0xFF01601E).withOpacity(0.4),
                         ),
@@ -110,7 +110,7 @@ class _LeaveDetailCardState extends State<LeaveDetailCard> {
                         ),
                         Expanded(
                           child: Text(
-                            "Consider By",
+                            widget.leave.considerBy!=null?"Consider By":"Requested From",
                             style: TextStyle(
                               color: colorScheme.onTertiary,
                               fontSize: 16,
@@ -141,7 +141,7 @@ class _LeaveDetailCardState extends State<LeaveDetailCard> {
                         ),
                         Expanded(
                           child: Text(
-                            "${widget.leave.considerBy}",
+                            widget.leave.considerBy!=null?"${widget.leave.considerBy}":"${widget.leave.requestedFrom}",
                             style: TextStyle(
                               color: colorScheme.onSurface,
                               fontSize: 16,

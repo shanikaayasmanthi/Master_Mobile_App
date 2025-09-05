@@ -1,5 +1,6 @@
 import 'package:av_master_mobile/screens/attendance/executive/home.dart';
 import 'package:av_master_mobile/screens/attendance/executive/leaves.dart';
+import 'package:av_master_mobile/screens/profile.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:get/get.dart';
 
@@ -11,7 +12,7 @@ class ExePageController extends GetxController{
   final List <Widget> attendancePages = [
     const Home(),
     const Leaves(),
-    const Center(child: Text("Profile"),)
+    const Profile(),
   ];
 
   //for other portals

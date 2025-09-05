@@ -18,8 +18,24 @@ class AttendanceModel {
     this.isCheckOutApproved = false,
   });
 
-  // Optional: A 'copyWith' method is useful for creating new instances
-  // with updated values, especially when working with Rx<T>
+  factory AttendanceModel.fromJson(Map<String, dynamic> json) {
+    final checkInDateTime = json['check_in'] != null
+        ? DateTime.parse(json['check_in'])
+        : null;
+
+    final checkOutDateTime = json['check_out'] != null
+        ? DateTime.parse(json['check_out'])
+        : null;
+
+    return AttendanceModel(
+      isCheckIn: checkInDateTime != null,
+      checkedInTime: checkInDateTime,
+      isCheckInApproved: json['check_in_approved_by'] != null,
+      isCheckOut: checkOutDateTime != null,
+      checkedOutTime: checkOutDateTime,
+      isCheckOutApproved: json['check_out_approved_by'] != null,
+    );
+  }
   AttendanceModel copyWith({
     bool? isCheckIn,
     DateTime? checkedInTime,
@@ -37,4 +53,17 @@ class AttendanceModel {
       isCheckOutApproved: isCheckOutApproved ?? this.isCheckOutApproved,
     );
   }
+
+  Map<String,dynamic> toJson(){
+    return {
+      'isCheckIn': isCheckIn,
+      'checkedInTime': checkedInTime,
+      'isCheckInApproved': isCheckInApproved ,
+      'isCheckOut': isCheckOut,
+      'checkedOutTime': checkedOutTime,
+      'isCheckOutApproved': isCheckOutApproved,
+    };
+  }
+
+
 }

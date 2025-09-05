@@ -1,7 +1,9 @@
+import 'package:av_master_mobile/controllers/auth_controller.dart';
 import 'package:av_master_mobile/models/user.dart';
 import 'package:av_master_mobile/widgets/portal_card.dart';
 import 'package:av_master_mobile/widgets/user_card.dart';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 
 class PortalPage extends StatefulWidget {
   const PortalPage({super.key});
@@ -11,13 +13,33 @@ class PortalPage extends StatefulWidget {
 }
 
 class _PortalPageState extends State<PortalPage> {
+
+  final AuthController authController = Get.put(AuthController());
+  UserModel? user;
+  bool isLoading = true;
+
   final portalDetails = [
     {'name': "Attendance", 'image': 'lib/images/attendance.png','navigate':""},
     // {'name': "Suspense", 'image': "lib/images/suspense.png",'navigate':""},
 
   ];
 
-  final user = UserModel(name: "Shanika Ayasmanthi", company: "Alta Vision", designation: "Software Engineer");
+
+  @override
+  void initState() {
+    // TODO: implement initState
+    super.initState();
+    loadUser();
+  }
+
+  Future<void> loadUser()async{
+    final storedUser = await authController.getUserFromStorage();
+
+    setState(() {
+      user = storedUser;
+      isLoading = false;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -29,9 +51,12 @@ class _PortalPageState extends State<PortalPage> {
         elevation: 0,
       ),
       body: SafeArea(
-        child: Column(
+        child: isLoading
+            ? const CircularProgressIndicator() // Show a loading indicator
+            : user != null
+            ? Column(
           children: [
-            UserCard(user: user,),
+            UserCard(user: user as UserModel,),
             Expanded(
               child: GridView.builder(
                 padding: EdgeInsets.symmetric(horizontal: 10,vertical: 10),
@@ -40,7 +65,7 @@ class _PortalPageState extends State<PortalPage> {
                   crossAxisSpacing: 10.0,
                   mainAxisSpacing: 10.0,
                   childAspectRatio:
-                      0.9, // Adjust this ratio for card height/width
+                  0.9, // Adjust this ratio for card height/width
                 ),
                 itemCount: portalDetails.length,
                 itemBuilder: (context,index){
@@ -51,7 +76,8 @@ class _PortalPageState extends State<PortalPage> {
             ),
 
           ],
-        ),
+        ) // Pass the loaded user data
+            : const Text('User not found'),
       ),
     );
   }

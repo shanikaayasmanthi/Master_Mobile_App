@@ -32,9 +32,6 @@ dependencies:
     sdk: flutter
   flutter_animated_splash: ^0.0.10
   provider: ^6.0.0
-
-  # The following adds the Cupertino Icons font to your application.
-  # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
   animated_bottom_navigation_bar: ^1.4.0
   get: ^4.7.2
@@ -44,6 +41,10 @@ dependencies:
   custom_sliding_segmented_control: ^1.8.5
   intl: ^0.18.1
   dio: ^5.3.3
+
+  # The following adds the Cupertino Icons font to your application.
+  # Use with the CupertinoIcons class for iOS style icons.
+
 
 dev_dependencies:
   flutter_test:

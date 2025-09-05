@@ -1,5 +1,10 @@
+import 'package:av_master_mobile/controllers/attendance/attendance_controller.dart';
+import 'package:av_master_mobile/controllers/auth_controller.dart';
 import 'package:av_master_mobile/models/attendance/leave.dart';
+import 'package:av_master_mobile/models/user.dart';
+import 'package:av_master_mobile/screens/attendance/executive/leaves.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 
@@ -13,29 +18,27 @@ class ApplyLeave extends StatefulWidget {
 }
 
 class _ApplyLeaveState extends State<ApplyLeave> {
+  UserModel? user;
   TextEditingController fromDateController = TextEditingController();
+  final AuthController authController = Get.put(AuthController());
+  AttendanceController attendanceController = Get.put(AttendanceController());
   TextEditingController toDateController = TextEditingController();
   final RxString leaveType = 'Leave Type'.obs;
   final RxString requestFrom = 'Select Approver'.obs;
+  final RxString selectedRequester = '0'.obs;
   TextEditingController reason = TextEditingController();
   final formKey = GlobalKey<FormState>();
   late String title;
 
   final List<String> leaveTypes = [
     'Leave Type',
-    'Medical Leave',
-    'Annual Leave',
-    'Casual Leave',
   ];
 
-  final List<String> approvers = [
-    'Select Approver',
-    'Rajitha Mihiranga',
-    'Nuwan Prasanna',
-    'Ishan Kumara',
-    'Supun Wijesiri',
+  final List<Map<String, String>> approvers = [
+    {'epf_number': '0', 'name': 'Select Approver'},
   ];
 
+  final List<String> approverNames = ['Select Approver'];
   DateTime? parseDate(String dateString) {
     try {
       return DateFormat('yyyy.MM.dd').parse(dateString);
@@ -45,8 +48,14 @@ class _ApplyLeaveState extends State<ApplyLeave> {
   }
 
   void applyLeave() {
+    print('ApplyLeave function called!');
     if (formKey.currentState!.validate()) {
       print('applied!');
+      print(parseDate(fromDateController.text).toString());
+      print(parseDate(toDateController.text).toString());
+      print(leaveType.value);
+      print(requestFrom.value);
+      print(reason.text);
     }
   }
 
@@ -84,16 +93,63 @@ class _ApplyLeaveState extends State<ApplyLeave> {
       leaveType.value = widget.leave!.leaveType;
       requestFrom.value = widget.leave!.requestedFrom!;
       reason.text = widget.leave!.reason??'';
-      title = "Edit Leave";
+      // title = "Edit Leave";
     }else{
-      title = "Apply Leave";
+      // title = "Apply Leave";
     }
+  }
+
+  Future loadLeaveTypesAndSupervisors() async {
+    await Future.delayed(const Duration(seconds: 2), () async {
+      final fetchLeaveTypeData = await leaveController.loadLeaveTypes();
+      if (fetchLeaveTypeData != null) {
+        final List<String> fetchedLeaveTypes = fetchLeaveTypeData.cast<String>().toList();
+        leaveTypes.addAll(fetchedLeaveTypes);
+      }
+      final storedUser = await authController.getUserFromStorage();
+      setState(() {
+        user = storedUser;
+      });
+      if (user != null) {
+        final fetchSupervisorsData = await attendanceController.getSupervisors(company: user!.company);
+        if (fetchSupervisorsData != null) {
+          // Clear the initial data
+          approvers.clear();
+          approverNames.clear();
+
+          // Add the default values back
+          approvers.add({'epf_number': '0', 'name': 'Select Approver'});
+          approverNames.add('Select Approver');
+
+          // Corrected line: Use .map() to explicitly convert values to String
+          setState(() {
+            approvers.assignAll([
+              {'epf_number': '0', 'name': 'Select Approver'},
+              ...fetchSupervisorsData.map((supervisor) {
+                return {
+                  'epf_number': supervisor['epf_number'].toString(),
+                  'name': supervisor['name'].toString(),
+                };
+              }).toList()
+            ]);
+            approverNames.assignAll(approvers.map((s) => s['name']!).toList());
+          });
+          if(widget.leave!=null){
+            loadLeaveToEdit();
+          }
+
+          print(approvers.toString());
+          print(approverNames.toString());
+        }
+      }
+    });
   }
 
   @override
   void initState() {
     super.initState();
-    loadLeaveToEdit();
+    // loadLeaveToEdit();
+    loadLeaveTypesAndSupervisors();
   }
 
   @override
@@ -104,7 +160,7 @@ class _ApplyLeaveState extends State<ApplyLeave> {
         centerTitle: true,
         automaticallyImplyLeading: true,
         title: Text(
-          title,
+          widget.leave==null?'Apply Leave':'Edit Leave',
           style: TextStyle(
             color: colorScheme.onSurface,
             fontSize: 22,
@@ -197,7 +253,7 @@ class _ApplyLeaveState extends State<ApplyLeave> {
               SizedBox(height: 20),
               //leave type
               Text(
-                "To Date",
+                "Leave Type",
                 style: TextStyle(
                   color: colorScheme.onSurface,
                   fontSize: 15,
@@ -259,19 +315,26 @@ class _ApplyLeaveState extends State<ApplyLeave> {
                     ),
                   ),
                   value: requestFrom.value,
-                  items: approvers.map((String approver) {
-                    return DropdownMenuItem(
-                      value: approver,
-                      child: Text(approver),
+                  items: approverNames.map((String approverName) {
+                    return DropdownMenuItem<String>(
+                      value: approverName, // value should be the display name
+                      child: Text(approverName),
                     );
                   }).toList(),
                   validator: (value) {
                     if (value == 'Select Approver') {
                       return 'Select your supervisor to approve';
                     }
+                    return null;
                   },
                   onChanged: (value) {
-                    requestFrom.value = value.toString();
+                    requestFrom.value = value!;
+                    // Find the corresponding EPF number and update the selected requester
+                    final selectedApprover = approvers.firstWhere(
+                          (approver) => approver['name'] == value,
+                    );
+                    selectedRequester.value = selectedApprover['epf_number']!;
+                    print(selectedRequester.value);
                   },
                 ),
               ),
@@ -321,7 +384,7 @@ class _ApplyLeaveState extends State<ApplyLeave> {
                         borderRadius: BorderRadius.circular(10),
                       ),
                     ),
-                    onPressed: applyLeave,
+                    onPressed:(){},
                     child: Text(
                       "Save Changes",
                       style: TextStyle(

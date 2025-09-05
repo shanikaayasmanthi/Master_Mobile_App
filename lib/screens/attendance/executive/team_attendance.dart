@@ -1,6 +1,11 @@
+import 'package:av_master_mobile/controllers/attendance/attendance_controller.dart';
+import 'package:av_master_mobile/models/attendance/attendance_request.dart';
+import 'package:av_master_mobile/screens/attendance/executive/team_absentees.dart';
 import 'package:av_master_mobile/screens/attendance/executive/team_leaves.dart';
+import 'package:av_master_mobile/user/user_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:intl/intl.dart';
 
 class TeamAttendance extends StatefulWidget {
   const TeamAttendance({super.key});
@@ -10,133 +15,56 @@ class TeamAttendance extends StatefulWidget {
 }
 
 class _TeamAttendanceState extends State<TeamAttendance> {
-  final List<Map<String, dynamic>> attendees = [
-    {
-      'id': 23,
-      'name': 'Lakmal Jayasuriya',
-      'in_time': '6.30 am',
-      'out_time': '5.00 pm',
-    },
-    {
-      'id': 30,
-      'name': 'Kamal Wijesiri',
-      'in_time': '7.30 am',
-      'out_time': '5.00 pm',
-    },
-    {
-      'id': 20,
-      'name': 'Ishan Sadaruwan',
-      'in_time': '6.45 am',
-      'out_time': '5.00 pm',
-    },
-    {
-      'id': 32,
-      'name': 'Pubudu Kumara',
-      'in_time': '6.50 am',
-      'out_time': '5.00 pm',
-    },
-    {
-      'id': 26,
-      'name': 'Rashan Sadanima',
-      'in_time': '7.30 am',
-      'out_time': '5.00 pm',
-    },
-    {
-      'id': 17,
-      'name': 'Sadaru Thushan',
-      'in_time': '7.30 am',
-      'out_time': '5.00 pm',
-    },
-    {
-      'id': 53,
-      'name': 'Thushanka Sethmina',
-      'in_time': '8.10 am',
-      'out_time': '5.00 pm',
-    },
-    {
-      'id': 3,
-      'name': 'Themidu Rashmika',
-      'in_time': '7.00 am',
-      'out_time': '5.00 pm',
-    },
-    {
-      'id': 12,
-      'name': 'Kishan Rajapakse',
-      'in_time': '6.30 am',
-      'out_time': '5.00 pm',
-    },
-  ];
+  // Correctly type the RxList to hold AttendanceRequest objects
+  RxList<AttendanceRequest> attendees = RxList<AttendanceRequest>();
+  RxString type = ''.obs;
 
   RxList<Map<String, dynamic>> selectedAttendees = <Map<String, dynamic>>[].obs;
+  AttendanceController attendanceController = Get.put(AttendanceController());
+  final userProvider = Get.find<UserProvider>();
 
-  String _getTimePeriod(String time) {
-    String formattedTime = time.replaceAll('.', ':');
-    DateTime arrivalTime = DateTime.now();
-
-    try {
-      final parts = formattedTime.split(' ');
-      final timeParts = parts[0].split(':');
-      final hour = int.parse(timeParts[0]);
-      final minute = int.parse(timeParts[1]);
-
-      int hour24 = hour;
-      if (parts[1].toLowerCase() == 'pm' && hour != 12) {
-        hour24 += 12;
-      }
-      if (parts[1].toLowerCase() == 'am' && hour == 12) {
-        hour24 = 0;
-      }
-
-      arrivalTime = DateTime(
-        DateTime.now().year,
-        DateTime.now().month,
-        DateTime.now().day,
-        hour24,
-        minute,
-      );
-    } catch (e) {
+  // Use a nullable parameter `String?`
+  String _getTimePeriod(String? time) {
+    if (time == null || time.isEmpty) {
       return 'invalid';
     }
 
-    final morningCutoff = DateTime(
-      arrivalTime.year,
-      arrivalTime.month,
-      arrivalTime.day,
-      6,
-      45,
-    );
-    final earlyCutoff = DateTime(
-      arrivalTime.year,
-      arrivalTime.month,
-      arrivalTime.day,
-      7,
-      0,
-    );
-    final regularCutoff = DateTime(
-      arrivalTime.year,
-      arrivalTime.month,
-      arrivalTime.day,
-      8,
-      0,
-    );
+    try {
+      // 1. Use DateFormat to parse the string.
+      // This is much more reliable than manual string splitting.
+      final DateTime arrivalTime = DateFormat('yyyy-MM-dd HH:mm:ss').parse(time);
 
-    if (arrivalTime.isBefore(morningCutoff)) {
-      return '1';
-    } else if (arrivalTime.isAfter(morningCutoff) &&
-        arrivalTime.isBefore(earlyCutoff)) {
+      final morningCutoff = DateTime(arrivalTime.year, arrivalTime.month, arrivalTime.day, 6, 45);
+      final earlyCutoff = DateTime(arrivalTime.year, arrivalTime.month, arrivalTime.day, 7, 0);
+      final regularCutoff = DateTime(arrivalTime.year, arrivalTime.month, arrivalTime.day, 8, 0);
+
+      // 2. The rest of the logic remains the same.
+      if (arrivalTime.isBefore(morningCutoff)) {
+        return '1';
+      } else if (arrivalTime.isAfter(morningCutoff) && arrivalTime.isBefore(earlyCutoff)) {
+        return '2';
+      } else if (arrivalTime.isAfter(earlyCutoff) && arrivalTime.isBefore(regularCutoff)) {
+        return '3';
+      } else if (arrivalTime.isAfter(regularCutoff)) {
+        return '4';
+      }
+
       return '2';
-    } else if (arrivalTime.isAfter(earlyCutoff) &&
-        arrivalTime.isBefore(regularCutoff)) {
-      return '3';
-    } else if (arrivalTime.isAfter(regularCutoff)) {
-      return '4';
+    } catch (e) {
+      // Return 'invalid' on any parsing error.
+      print('Parsing error in _getTimePeriod: $e');
+      return 'invalid';
     }
-
-    return '2';
   }
 
-  Color _getColorForTime(String time, int boxIndex) {
+  Color _getColorForTime(String? time, int boxIndex, String? selectedPeriod) {
     final timePeriod = _getTimePeriod(time);
+    final boxPeriod = (boxIndex + 1).toString();
+
+    // Prioritize the user's selected period
+    if (selectedPeriod == boxPeriod) {
+      return Colors.blue;
+    }
     if (boxIndex == 1) {
       return timePeriod == '1' ? Colors.green : Colors.white;
     } else if (boxIndex == 2) {
@@ -154,6 +82,45 @@ class _TeamAttendanceState extends State<TeamAttendance> {
 
   RxBool isAllSelected = false.obs;
 
+  Future<void> loadTodayAttendance(String company, String epfNumber) async {
+    final fetchedData = await attendanceController.loadTodayAttendanceList(
+        company: company, epfNumber: epfNumber);
+    print(fetchedData);
+    if (fetchedData != null) {
+      setState(() {
+        type.value = fetchedData['list_type'];
+        var listData;
+        if (type.value == 'check_in') {
+          listData = fetchedData['check_in_list'];
+        } else {
+          listData = fetchedData['check_out_list'];
+        }
+
+        // Map the list of maps to a list of AttendanceRequest objects
+        attendees.assignAll(listData.map<AttendanceRequest>((item) => AttendanceRequest.fromJson(item)).toList());
+      });
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    // This loop is no longer necessary as you'll handle it inside the ListView.builder.
+    // The `attendees` list is initially empty.
+    // for (var attendee in attendees) {
+    //   attendee.controller = TextEditingController(text: attendee.time ?? '');
+    // }
+    loadTodayAttendance(userProvider.user!.company, userProvider.user!.epfNumber);
+  }
+
+  @override
+  void dispose() {
+    for (var attendee in attendees) {
+      attendee.controller?.dispose();
+    }
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     var colorScheme = Theme.of(context).colorScheme;
@@ -166,23 +133,25 @@ class _TeamAttendanceState extends State<TeamAttendance> {
             children: [
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
-                spacing: 15,
                 children: [
                   IconButton(
                     style: IconButton.styleFrom(
                       backgroundColor: Colors.red.withOpacity(0.1),
                     ),
-                    onPressed: () {},
-                    icon: Icon(Icons.warning, color: Colors.red),
+                    onPressed: () {
+                      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const TeamAbsentees()));
+                    },
+                    icon: const Icon(Icons.warning, color: Colors.red),
                   ),
+                  const SizedBox(width: 15),
                   IconButton(
                     style: IconButton.styleFrom(
-                      backgroundColor: Color(0xFF0074F9).withOpacity(0.1),
+                      backgroundColor: const Color(0xFF0074F9).withOpacity(0.1),
                     ),
                     onPressed: () {
-                      Navigator.of(context).push(MaterialPageRoute(builder: (context)=>const TeamLeaves()));
+                      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const TeamLeaves()));
                     },
-                    icon: Icon(
+                    icon: const Icon(
                       Icons.calendar_today_rounded,
                       color: Color(0xFF0074F9),
                     ),
@@ -193,7 +162,7 @@ class _TeamAttendanceState extends State<TeamAttendance> {
                 children: [
                   Expanded(
                     child: Obx(
-                      () => CheckboxListTile(
+                          () => CheckboxListTile(
                         controlAffinity: ListTileControlAffinity.leading,
                         dense: true,
                         visualDensity: VisualDensity.compact,
@@ -205,14 +174,10 @@ class _TeamAttendanceState extends State<TeamAttendance> {
                           isAllSelected.value = value!;
                           if (isAllSelected.value) {
                             for (var attendee in attendees) {
-                              if (!selectedAttendees.any(
-                                (item) => item['id'] == attendee['id'],
-                              )) {
-                                final timePeriod = _getTimePeriod(
-                                  attendee['in_time'],
-                                );
+                              if (!selectedAttendees.any((item) => item['id'] == attendee.id)) {
+                                final timePeriod = _getTimePeriod(attendee.time);
                                 selectedAttendees.add({
-                                  'id': attendee['id'],
+                                  'id': attendee.id,
                                   'time_period': timePeriod,
                                 });
                               }
@@ -227,22 +192,13 @@ class _TeamAttendanceState extends State<TeamAttendance> {
                   Expanded(
                     child: ElevatedButton(
                       onPressed: () {
-                        // You can use selectedAttendees.value here
-                        print(selectedAttendees.value);
                         final List<int> idsToRemove = selectedAttendees
                             .map((attendee) => attendee['id'] as int)
                             .toList();
 
                         setState(() {
-                          // Remove attendees from the main list whose IDs are in idsToRemove
-                          attendees.removeWhere(
-                            (attendee) => idsToRemove.contains(attendee['id']),
-                          );
-
-                          // Clear the selected attendees list after removal
+                          attendees.removeWhere((attendee) => idsToRemove.contains(attendee.id));
                           selectedAttendees.clear();
-
-                          // Uncheck the "All" checkbox if it was selected
                           isAllSelected.value = false;
                         });
                       },
@@ -262,9 +218,7 @@ class _TeamAttendanceState extends State<TeamAttendance> {
                   ),
                 ],
               ),
-              SizedBox(height: 15),
-              // Expanded(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
-              // child:
+              const SizedBox(height: 15),
               Row(
                 children: [
                   Expanded(
@@ -293,7 +247,7 @@ class _TeamAttendanceState extends State<TeamAttendance> {
                   ),
                   ...List.generate(
                     3,
-                    (boxIndex) => Padding(
+                        (boxIndex) => Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 6.0),
                       child: Text(
                         '${boxIndex + 1}',
@@ -307,63 +261,134 @@ class _TeamAttendanceState extends State<TeamAttendance> {
                   ),
                 ],
               ),
-              // ),
-              // ),
               Expanded(
                 child: ListView.builder(
                   itemCount: attendees.length,
                   itemBuilder: (context, index) {
                     final attendee = attendees[index];
-                    final timePeriod = _getTimePeriod(attendee['in_time']);
+
+                    // Use a controller specific to each attendee to manage state
+                    // This is crucial to prevent the time from reverting
+                    final TextEditingController textEditingController = TextEditingController(text: attendee.time);
+
                     return Padding(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 0,
                         vertical: 0,
                       ),
                       child: Obx(
-                        () => Row(
+                            () => Row(
                           children: [
                             Expanded(
                               flex: 3,
                               child: CheckboxListTile(
-                                title: Text(attendee['name']),
+                                title: Text(attendee.name ?? ''),
                                 value: selectedAttendees.any(
-                                  (item) => item['id'] == attendee['id'],
+                                      (item) => item['id'] == attendee.id,
                                 ),
                                 onChanged: (bool? value) {
                                   if (value == true) {
                                     selectedAttendees.add({
-                                      'id': attendee['id'],
-                                      'time_period': timePeriod,
+                                      'id': attendee.id,
+                                      'time_period': _getTimePeriod(textEditingController.text),
                                     });
+                                    if(selectedAttendees.length==attendees.length){
+                                      setState(() {
+                                        isAllSelect.value = true;
+                                      });
+                                    }
                                   } else {
                                     selectedAttendees.removeWhere(
-                                      (item) => item['id'] == attendee['id'],
-                                    );
+                                            (item) => item['id'] == attendee.id);
                                     isAllSelected.value = false;
                                   }
                                 },
-                                controlAffinity:
-                                    ListTileControlAffinity.leading,
+                                controlAffinity: ListTileControlAffinity.leading,
                               ),
                             ),
-                            Expanded(child: Text(attendee['in_time'])),
+                            Expanded(
+                              child: TextField(
+                                controller: TextEditingController(
+                                  // Format the time string before setting the controller's text
+                                  text: attendee.time != null
+                                      ? DateFormat('h:mm a')
+                                      .format(DateFormat('yyyy-MM-dd HH:mm:ss').parse(attendee.time!))
+                                      : '',
+                                ),
+                                decoration: const InputDecoration(
+                                  isDense: true,
+                                  contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                                ),
+                                onChanged: (newTime) {
+                                  try {
+                                    // Parse the new time in the expected user input format
+                                    final DateTime parsedTime = DateFormat('h:mm a').parse(newTime);
+                                    // Store the time in the original API format
+                                    attendee.time = DateFormat('yyyy-MM-dd HH:mm:ss').format(parsedTime);
+                                  } catch (e) {
+                                    // Handle parsing errors gracefully
+                                    print('Invalid time format during onChanged: $e');
+                                    // Optionally, you can revert the text field's value here
+                                  }
+                                },
+
+                                onSubmitted: (newTime) {
+                                  // When the user submits the time, re-format it if needed
+                                  // and trigger a rebuild to update the UI
+                                  try {
+                                    final DateTime parsedTime = DateFormat('h:mm a').parse(newTime);
+                                    attendee.time = newTime;
+                                    attendees.refresh();
+                                  } catch (e) {
+                                    // Handle parsing errors (e.g., if the user enters invalid time)
+                                    print('Invalid time format: $newTime');
+                                    // Revert the text to the last valid time
+                                    textEditingController.text = attendee.time;
+                                  }
+                                },
+                              ),
+                            ),
                             ...List.generate(
                               3,
-                              (boxIndex) => Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 2.0,
-                                ),
-                                child: Container(
-                                  width: 15,
-                                  height: 15,
-                                  decoration: BoxDecoration(
-                                    border: Border.all(
-                                      color: Colors.grey.shade300,
-                                    ),
-                                    color: _getColorForTime(
-                                      attendee['in_time'],
-                                      boxIndex + 1,
+                                  (boxIndex) => GestureDetector(
+                                    onTap: () {
+                                      // Update the selectedTimePeriod in the model.
+                                      // This allows the user to tap and select a period
+                                      // even if the checkbox isn't checked yet.
+                                      attendee.selectedTimePeriod = (boxIndex + 1).toString();
+
+                                      // Also, make sure the attendee is added to the selection list.
+                                      // This ensures the approve button works for single selections.
+                                      if (!selectedAttendees.any((item) => item['id'] == attendee.id)) {
+                                        selectedAttendees.add({
+                                          'id': attendee.id,
+                                          'time_period': attendee.selectedTimePeriod,
+                                        });
+                                      } else {
+                                        // If already selected, update the time_period
+                                        final itemIndex = selectedAttendees.indexWhere((item) => item['id'] == attendee.id);
+                                        if (itemIndex != -1) {
+                                          selectedAttendees[itemIndex]['time_period'] = attendee.selectedTimePeriod;
+                                        }
+                                      }
+                                      attendees.refresh(); // Trigger a rebuild
+                                    },
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 2.0,
+                                  ),
+                                  child: Container(
+                                    width: 15,
+                                    height: 15,
+                                    decoration: BoxDecoration(
+                                      border: Border.all(
+                                        color: Colors.grey.shade300,
+                                      ),
+                                      color: _getColorForTime(
+                                        attendee.time, // This is the formatted string (e.g., "7:46 AM")
+                                        boxIndex,
+                                        attendee.selectedTimePeriod,
+                                      ),
                                     ),
                                   ),
                                 ),

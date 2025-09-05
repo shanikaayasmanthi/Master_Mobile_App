@@ -1,17 +1,26 @@
+import 'package:av_master_mobile/controllers/auth_controller.dart';
 import 'package:av_master_mobile/screens/splash_screen.dart';
-import 'package:av_master_mobile/theme/theme.dart';
 import 'package:av_master_mobile/theme/theme_provider.dart';
+import 'package:av_master_mobile/user/user_provider.dart';
 import 'package:flutter/material.dart';
-import 'package:get/get_navigation/src/root/get_material_app.dart';
 import 'package:provider/provider.dart';
+import 'package:get/get.dart';
 
+class AuthBinding extends Bindings {
+  @override
+  void dependencies() {
+    Get.put<AuthController>(AuthController(), permanent: true);
+    Get.put<UserProvider>(UserProvider(),permanent: true);
+  }
+}
 
 void main() {
   runApp(
-    ChangeNotifierProvider(
-        create: (context) => ThemeProvider(),
-        child : const MyApp()
-    ),
+    MultiProvider(providers: [
+      ChangeNotifierProvider(create: (_)=>ThemeProvider()),
+      ChangeNotifierProvider(create: (_)=>UserProvider()),
+    ],
+    child: const MyApp(),)
   );
 }
 
@@ -26,6 +35,7 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: Provider.of<ThemeProvider>(context).themeData,
       home: SplashScreen(),
+        initialBinding: AuthBinding(),
     );
   }
 }

@@ -1,5 +1,7 @@
 import 'package:animated_bottom_navigation_bar/animated_bottom_navigation_bar.dart';
 import 'package:av_master_mobile/controllers/attendance/tech_page_controller.dart';
+import 'package:av_master_mobile/controllers/auth_controller.dart';
+import 'package:av_master_mobile/models/user.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 

@@ -15,6 +15,8 @@ class ApiClient {
 
         if(accessToken !=null) {
           options.headers['Authorization'] = 'Bearer $accessToken';
+          // options.headers['Accept'] = 'application/json';
+          // options.headers['Content-Type'] = 'application/json';
         }
 
         return handler.next(options);

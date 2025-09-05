@@ -18,7 +18,7 @@ class AttendanceSwipeButton extends StatefulWidget {
 
   final AttendanceController attendanceController;
   final AttendanceActionCallback? onActionComplete;
-  final List<int>? selectedSupervisorIds;
+  final List<String>? selectedSupervisorIds;
   final String workingPlace;
   final int siteNo;
   @override
@@ -102,9 +102,10 @@ class _AttendanceSwipeButtonState extends State<AttendanceSwipeButton> {
           activeThumbColor: activeThumbBgColor,
           activeTrackColor: activeTrackBgColor,
           onSwipeEnd: swipable
-              ? () {
+              ? () async{
                   if (!isCheckedIn) {
-                    widget.attendanceController.checkIn(supervisorIds: widget.selectedSupervisorIds);
+                    final result = await widget.attendanceController.checkIn(supervisorIds: widget.selectedSupervisorIds);
+                    print(result);
                     if(widget.attendanceController.selectedSupervisorError.value!=''){
                       Get.snackbar("Cannot Check In", "Select al least one supervisor");
                     }

@@ -1,24 +1,16 @@
-import 'package:av_master_mobile/screens/login.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_animated_splash/flutter_animated_splash.dart';
 
-class SplashScreen extends StatefulWidget {
-  const SplashScreen({super.key});
+class SplashScreen extends StatelessWidget {
+  const SplashScreen({Key? key}) : super(key: key);
 
-  @override
-  State<SplashScreen> createState() => _SplashScreenState();
-}
-
-class _SplashScreenState extends State<SplashScreen> {
   @override
   Widget build(BuildContext context) {
-    return AnimatedSplash(
-        type: Transition.fade,
-        child:Text("Your Splash"),
-        curve: Curves.fastEaseInToSlowEaseOut,
-        backgroundColor: Colors.white,
-        navigator:const Login(),
-        durationInSeconds:3
+    return const Scaffold(
+      body: Center(
+        // You can put your app logo or a simple text here.
+        // The CircularProgressIndicator gives a visual cue that something is loading.
+        child: CircularProgressIndicator(),
+      ),
     );
   }
 }
