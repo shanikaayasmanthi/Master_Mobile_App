@@ -4,11 +4,14 @@ import 'package:av_master_mobile/constants/base_url.dart';
 import 'package:av_master_mobile/controllers/auth_controller.dart';
 import 'package:av_master_mobile/dio/api_client.dart';
 import 'package:av_master_mobile/models/attendance/attendance.dart';
+import 'package:av_master_mobile/models/attendance/attendance_request.dart';
 import 'package:av_master_mobile/models/user.dart';
 import 'package:av_master_mobile/user/user_provider.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:get/get.dart';
+import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class AttendanceController extends GetxController {
   final Rx<AttendanceModel> attendanceModel = AttendanceModel().obs;
@@ -424,13 +427,109 @@ class AttendanceController extends GetxController {
         queryParameters: {'company': company, 'epf_number': epfNumber},
       );
       // print(response);
-      if(response.statusCode==200){
+      if (response.statusCode == 200) {
         final Map<String, dynamic> responseBody =
-        response.data as Map<String, dynamic>;
+            response.data as Map<String, dynamic>;
         return responseBody['data'];
       }
-    } on DioException catch (e) {
+    } on DioException catch (e) {}
+  }
 
+  Future approveCheckIn({
+    required String epfNumber,
+    required List<AttendanceRequest> attendanceRequests,
+  }) async {
+    try {
+      final approvedList = attendanceRequests
+          .map((req) => req.toJsonCheckIn())
+          .toList();
+      var data = {'epf_number': epfNumber, 'approved_list': approvedList};
+      // print(data);
+      final response = await apiClient.dio.post(
+        '$BASE_URL/approve-check-in',
+        data: data,
+      );
+      // print(response);
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> responseBody =
+            response.data as Map<String, dynamic>;
+        final checkInApprovalCount = responseBody['data']['updated_count'];
+        if (checkInApprovalCount == approvedList.length) {
+          return true;
+        }
+        return false;
+      }
+    } on DioException catch (e) {
+      return false;
+      print(e);
+    }
+  }
+
+  Future approveCheckOut({
+    required String epfNumber,
+    required List<AttendanceRequest> attendanceRequests,
+  }) async {
+    try{
+      final approvedList = attendanceRequests
+          .map((req) => req.toJsonCheckOut())
+          .toList();
+      var data = {'epf_number': epfNumber, 'approved_list': approvedList};
+      final response = await apiClient.dio.post(
+        '$BASE_URL/approve-check-out',
+        data: data,
+      );
+      // print(response);
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> responseBody =
+        response.data as Map<String, dynamic>;
+        final checkInApprovalCount = responseBody['data']['updated_count'];
+        if (checkInApprovalCount == approvedList.length) {
+          return true;
+        }
+        return false;
+      }
+    }on DioException catch (e) {
+      return false;
+      print(e);
+    }
+  }
+
+  Future<void> sendMessage({required List<String> phoneNumbers}) async {
+    // Check if the list of phone numbers is empty.
+    // This prevents creating a malformed URI.
+    if (phoneNumbers.isEmpty) {
+      print('Error: The list of phone numbers is empty.');
+      return;
+    }
+
+    // Define the message to be sent.
+    const String message = "Hello! You haven't check in yet for today. Please check in.";
+
+    // Join the phone numbers with commas to create the 'to' field of the SMS URI.
+    final String recipients = phoneNumbers.join(',');
+
+    // Encode the message to ensure any special characters are correctly handled in the URI.
+    final String encodedMessage = Uri.encodeComponent(message);
+
+    // Construct the full URI string.
+    final String uriString = 'sms:$recipients?body=$encodedMessage';
+
+    try {
+      // Attempt to parse the URI string into a Uri object.
+      final Uri uri = Uri.parse(uriString);
+
+      // Check if the URI can be launched on the current device.
+      if (await canLaunchUrl(uri)) {
+        // Launch the URI to open the messaging app.
+        await launchUrl(uri);
+        print('Launched SMS app with $uriString');
+      } else {
+        // Print an error if the URI cannot be launched.
+        print('Could not launch SMS app. No handler found for $uriString');
+      }
+    } catch (e) {
+      // Catch any unexpected errors during parsing or launching.
+      print('An error occurred while launching SMS app: $e');
     }
   }
 }

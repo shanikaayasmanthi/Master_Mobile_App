@@ -1,3 +1,4 @@
+import 'package:av_master_mobile/controllers/attendance/attendance_controller.dart';
 import 'package:av_master_mobile/controllers/attendance/leave_controller.dart';
 import 'package:av_master_mobile/user/user_provider.dart';
 import 'package:flutter/material.dart';
@@ -11,6 +12,7 @@ class TeamAbsentees extends StatefulWidget {
 }
 
 LeaveController leaveController = Get.put(LeaveController());
+AttendanceController attendanceController = Get.put(AttendanceController());
 final userProvider = Get.find<UserProvider>();
 RxList absentList = [].obs;
 RxBool isAllSelect = false.obs;
@@ -77,7 +79,24 @@ class _TeamAbsenteesState extends State<TeamAbsentees> {
                   Expanded(
                     flex: 1,
                     child: ElevatedButton(
-                      onPressed: () {},
+                      onPressed: () async{
+                        print(selectedList);
+                        List<String> phoneNumbers =[];
+                        selectedList.forEach((item){
+                        if (item['office_phonenumber'] != null &&
+                            item['office_phonenumber']!.trim().isNotEmpty) {
+                          print(item['office_phonenumber']);
+                            phoneNumbers.add(item['office_phonenumber']!);
+                      }
+                        // Check if the personal number is not null AND not empty/whitespace
+                        else if (item['personal_phonenumber'] != null &&
+                            item['personal_phonenumber']!.trim().isNotEmpty) {
+                        phoneNumbers.add(item['personal_phonenumber']!);
+                        }
+                        });
+                        print('Populated phone numbers list: $phoneNumbers');
+                        await attendanceController.sendMessage(phoneNumbers: phoneNumbers);
+                      },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: colorScheme.primary,
                         padding: const EdgeInsets.symmetric(
@@ -127,7 +146,9 @@ class _TeamAbsenteesState extends State<TeamAbsentees> {
                           ),
                         ),
                         IconButton(
-                          onPressed: () {},
+                          onPressed: () {
+                            print(absentee['office_phonenumber']);
+                          },
                           icon: Icon(Icons.message_rounded),
                         ),
                       ],
